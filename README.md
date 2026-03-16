@@ -67,12 +67,26 @@ go build -o supaco .
 cp supaco ~/.local/bin/supaco   # ou /usr/local/bin/ com sudo
 ```
 
+### Tab completion (Fish)
+
+```bash
+cp completions/supaco.fish ~/.config/fish/completions/
+```
+
+Depois é só digitar `supaco ` + Tab para ver os comandos disponíveis.
+
 ---
 
 ## Uso
 
 ```bash
-supaco
+supaco              # abre o painel interativo (TUI)
+supaco hoje         # aulas de hoje
+supaco semana       # grade da semana
+supaco faltas       # frequência e limite de faltas por disciplina
+supaco notas        # notas do semestre
+supaco status       # resumo rápido (IRA, hoje, alertas)
+supaco help         # ajuda
 ```
 
 Na primeira execução, uma tela de login aparece. Digite sua **matrícula** e **senha** do SUAP.
