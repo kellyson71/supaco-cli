@@ -1,0 +1,30 @@
+# Maintainer: kellyson71 <https://github.com/kellyson71>
+
+pkgname=supaco-cli
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Terminal TUI para o SUAP do IFRN — aulas, frequência, notas e notificações no terminal"
+arch=('x86_64' 'aarch64')
+url="https://github.com/kellyson71/supaco-cli"
+license=('MIT')
+depends=()
+makedepends=('go')
+provides=('supaco')
+conflicts=('supaco')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/kellyson71/$pkgname/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('f45a8fcf446641f44189350c8634bd45b62876454460c78b936470910ed718f9')
+
+build() {
+    cd "$pkgname-$pkgver"
+    export CGO_ENABLED=0
+    export GOPATH="$srcdir/gopath"
+    go build -trimpath -ldflags="-s -w -X main.version=$pkgver" -o supaco .
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    install -Dm755 supaco "$pkgdir/usr/bin/supaco"
+    install -Dm644 completions/supaco.fish \
+        "$pkgdir/usr/share/fish/vendor_completions.d/supaco.fish"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
