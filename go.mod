@@ -1,4 +1,4 @@
-module supaco-cli
+module github.com/kellyson71/supaco-cli
 
 go 1.25.0
 

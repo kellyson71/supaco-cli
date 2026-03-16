@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"supaco-cli/internal/api"
+	"github.com/kellyson71/supaco-cli/internal/api"
 )
 
 var ptWeekdays = map[string]int{

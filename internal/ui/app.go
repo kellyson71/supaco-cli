@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"supaco-cli/internal/api"
-	"supaco-cli/internal/config"
+	"github.com/kellyson71/supaco-cli/internal/api"
+	"github.com/kellyson71/supaco-cli/internal/config"
 )
 
 // ── Screens ───────────────────────────────────────────────────────────────────
@@ -451,19 +451,18 @@ func (a *App) viewMenu() string {
 
 	var menuLines []string
 	for i, item := range a.menuItems {
-		label := item.icon + " " + item.label
+		icon := "○ "
+		label := item.label
 		badge := ""
 		if item.badge != "" {
 			badge = " " + BadgeYellowStyle.Render(" "+item.badge+" ")
 		}
 		if i == a.menuCursor {
-			menuLines = append(menuLines,
-				MenuItemSelectedStyle.Width(sideW).Render(label+badge),
-			)
+			line := MenuItemSelectedStyle.Width(sideW).Render("● " + label + badge)
+			menuLines = append(menuLines, line)
 		} else {
-			menuLines = append(menuLines,
-				MenuItemStyle.Width(sideW).Render(label+badge),
-			)
+			line := MenuItemStyle.Width(sideW).Render(icon + label + badge)
+			menuLines = append(menuLines, line)
 		}
 	}
 
@@ -662,14 +661,14 @@ func (a *App) buildMenu() {
 		badge = fmt.Sprintf("%d", a.messages.Count)
 	}
 	a.menuItems = []menuItem{
-		{"*", "Aulas de Hoje", screenToday, ""},
-		{"~", "Grade da Semana", screenWeek, ""},
-		{"%", "Frequencia e Faltas", screenAbsences, ""},
-		{"#", "Notas do Semestre", screenGrades, ""},
-		{"@", "Meu Perfil", screenProfile, ""},
-		{"!", "Notificacoes", screenNotifications, badge},
-		{"+", "Atualizar dados", 0, ""},
-		{"x", "Sair", 0, ""},
+		{"▸", "Aulas de Hoje", screenToday, ""},
+		{"▸", "Grade da Semana", screenWeek, ""},
+		{"▸", "Frequencia e Faltas", screenAbsences, ""},
+		{"▸", "Notas do Semestre", screenGrades, ""},
+		{"▸", "Meu Perfil", screenProfile, ""},
+		{"▸", "Notificacoes", screenNotifications, badge},
+		{"↺", "Atualizar dados", 0, ""},
+		{"⏎", "Sair", 0, ""},
 	}
 }
 
