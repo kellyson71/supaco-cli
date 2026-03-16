@@ -17,18 +17,9 @@ Veja suas aulas, frequência, notas e notificações direto no terminal — sem 
 ---
 
 ## Screenshots
+![alt text](image.png)
 
-<!-- SCREENSHOTS: rode o app e tire prints com seu sistema (Print Screen / Spectacle no KDE, Flameshot, etc.)
-     Depois salve em assets/ e substitua os links abaixo. -->
-
-> 📸 *Screenshots em breve. Contribuições bem-vindas!*
->
-> Para gerar um GIF automaticamente, instale o [ttyd](https://github.com/tsl0922/ttyd) e rode:
-> ```bash
-> vhs demo.tape
-> ```
-> O arquivo `demo.tape` já está incluso no repositório.
-
+![alt text](image-1.png)
 ---
 
 ## Funcionalidades
@@ -187,31 +178,3 @@ supaco-cli/
 
 ---
 
-## Contribuindo
-
-PRs são bem-vindos! Algumas ideias:
-
-- [ ] Histórico de notas (semestres anteriores)
-- [ ] Notificações de alertas de frequência via sistema
-- [ ] Modo offline com cache persistente
-- [ ] Suporte a outros campi / instâncias do SUAP
-
-```bash
-git clone https://github.com/kellyson71/supaco-cli.git
-cd supaco-cli
-go run .
-```
-
----
-
-## Aviso Legal
-
-Este projeto **não é oficial** e não tem qualquer vínculo com o IFRN ou com os desenvolvedores do SUAP.
-Usa apenas endpoints públicos da API do SUAP que são acessíveis com credenciais válidas de aluno.
-Não armazena senhas — apenas os tokens JWT gerados após login.
-
----
-
-<p align="center">
-  Feito com ♥ por alunos do IFRN
-</p>
