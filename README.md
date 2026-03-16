@@ -134,10 +134,26 @@ vhs demo.tape
 ```
 
 Para screenshots manuais no Linux:
-- **Flameshot**: `flameshot gui`
-- **KDE Spectacle**: `spectacle`
-- **GNOME**: `gnome-screenshot -i`
-- **scrot**: `scrot -s assets/screenshot.png`
+
+```bash
+# Script incluso (usa grim + slurp no Wayland)
+./scripts/screenshot.sh login      # salva assets/login.png
+./scripts/screenshot.sh menu       # salva assets/menu.png
+./scripts/screenshot.sh hoje       # salva assets/hoje.png
+
+# Ou manualmente:
+# Wayland (Hyprland/Sway/KDE Wayland)
+grim -g "$(slurp)" assets/screenshot.png
+
+# Flameshot
+flameshot gui -p assets/
+
+# GNOME
+gnome-screenshot -a -f assets/screenshot.png
+
+# KDE Spectacle
+spectacle -r -b -o assets/screenshot.png
+```
 
 ---
 
