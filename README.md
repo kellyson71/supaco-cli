@@ -37,9 +37,11 @@ Veja suas aulas, frequência, notas e notificações direto no terminal — sem 
 
 ## Instalação
 
-### Pré-requisitos
+### Via AUR (Arch / Manjaro / CachyOS)
 
-- [Go 1.21+](https://go.dev/dl/)
+```bash
+yay -S supaco-cli
+```
 
 ### Via `go install`
 
@@ -48,6 +50,8 @@ go install github.com/kellyson71/supaco-cli@latest
 ```
 
 ### Compilando do fonte
+
+**Pré-requisitos:** [Go 1.21+](https://go.dev/dl/)
 
 ```bash
 git clone https://github.com/kellyson71/supaco-cli.git
