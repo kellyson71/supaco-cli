@@ -146,15 +146,15 @@ func RenderToday(diaries []api.Diary, width int) string {
 
 func renderClassCard(d api.Diary, b api.DayBlock, dayName string, cardW int) string {
 	timeStr := lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(b.Start + " – " + b.End)
-	name := BoldStyle.Render(d.Disciplina.Descricao)
+	name := BoldStyle.Render(d.Nome())
 	prof := MutedStyle.Render(d.ProfNames())
 	sala := ""
 	if s := d.SalaShort(); s != "" {
 		sala = MutedStyle.Render("  ·  " + s)
 	}
 
-	freq := d.Disciplina.Frequencia
-	faltas := d.Disciplina.QtdFaltas
+	freq := d.Frequencia()
+	faltas := d.NumeroFaltas()
 	maxF := d.MaxFaltas()
 	restante := d.PodeEFaltar()
 
@@ -188,7 +188,7 @@ func renderClassCard(d api.Diary, b api.DayBlock, dayName string, cardW int) str
 		lipgloss.NewStyle().Foreground(muted).Render(fmt.Sprintf("%.1f%%", freq)) +
 		"   " + badge
 	row4 := "     " + MutedStyle.Render(fmt.Sprintf("Faltas: %d / max %d  ·  CH: %dh",
-		faltas, maxF, d.Disciplina.CHTotal))
+		faltas, maxF, d.CargaHoraria()))
 
 	inner := lipgloss.JoinVertical(lipgloss.Left, row1, row2, "", row3, row4)
 
@@ -239,7 +239,7 @@ func RenderWeek(diaries []api.Diary, width int) string {
 					rows = append(rows, classRow{
 						start: b.Start,
 						end:   b.End,
-						nome:  d.Disciplina.Descricao,
+						nome:  d.Nome(),
 						prof:  d.ProfNames(),
 						sala:  d.SalaShort(),
 					})
@@ -314,8 +314,8 @@ func RenderAbsences(diaries []api.Diary, width int) string {
 
 	var cards []string
 	for _, d := range diaries {
-		freq := d.Disciplina.Frequencia
-		faltas := d.Disciplina.QtdFaltas
+		freq := d.Frequencia()
+		faltas := d.NumeroFaltas()
 		maxF := d.MaxFaltas()
 		restante := d.PodeEFaltar()
 
@@ -344,11 +344,11 @@ func RenderAbsences(diaries []api.Diary, width int) string {
 
 		inner := lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.JoinHorizontal(lipgloss.Top,
-				lipgloss.NewStyle().Width(nameW).Render(BoldStyle.Render(d.Disciplina.Descricao)),
+				lipgloss.NewStyle().Width(nameW).Render(BoldStyle.Render(d.Nome())),
 				badge,
 			),
 			MutedStyle.Render(fmt.Sprintf("Faltas: %d  ·  Max: %d  ·  CH: %dh",
-				faltas, maxF, d.Disciplina.CHTotal)),
+				faltas, maxF, d.CargaHoraria())),
 			"",
 			bar+" "+lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(fmt.Sprintf("%.1f%%", freq)),
 		)
@@ -389,7 +389,7 @@ func RenderGrades(diaries []api.Diary, academic *api.AcademicData, width int) st
 
 	var cards []string
 	for _, d := range diaries {
-		name := BoldStyle.Render(d.Disciplina.Descricao)
+		name := BoldStyle.Render(d.Nome())
 
 		var notasParts []string
 		for _, n := range d.Disciplina.Notas {

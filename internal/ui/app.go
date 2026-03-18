@@ -517,7 +517,7 @@ func (a *App) buildStatusPanel(w int) []string {
 		for dia, b := range d.DayBlocks() {
 			if ptWeekdays[dia] == todayIdx {
 				line := lipgloss.NewStyle().Foreground(cyan).Render(b.Start+" – "+b.End) +
-					"  " + BoldStyle.Render(d.Disciplina.Descricao)
+					"  " + BoldStyle.Render(d.Nome())
 				todayClasses = append(todayClasses, "  "+line)
 			}
 		}
@@ -539,9 +539,9 @@ func (a *App) buildStatusPanel(w int) []string {
 	critical := 0
 	ok := 0
 	for _, d := range a.diaries {
-		f := d.Disciplina.Frequencia
+		f := d.Frequencia()
 		switch {
-		case f < 75 && (f > 0 || d.Disciplina.QtdFaltas > 0):
+		case f < 75 && (f > 0 || d.NumeroFaltas() > 0):
 			critical++
 		case f < 85 && f > 0:
 			atRisk++
@@ -698,10 +698,18 @@ func (a *App) loadData() tea.Cmd {
 
 		periods, _ := a.client.GetPeriods()
 		semestre := api.LatestSemester(periods)
+		latest := api.LatestPeriod(periods)
 
 		var diaries []api.Diary
 		if semestre != "" {
 			diaries, _ = a.client.GetDiaries(semestre)
+			// Merge boletim (fonte correta de faltas e notas)
+			if latest != nil {
+				b, err := a.client.GetBoletim(latest.AnoLetivo, latest.PeriodoLetivo)
+				if err == nil {
+					diaries = api.MergeBoletim(diaries, b)
+				}
+			}
 		}
 
 		completion, _ := a.client.GetCompletionReqs()

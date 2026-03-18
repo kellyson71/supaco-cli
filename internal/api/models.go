@@ -110,6 +110,8 @@ type Diary struct {
 	Professores []Professor     `json:"professores"`
 	Horarios    []DiaryHorario  `json:"horarios"`
 	Local       *DiaryLocal     `json:"local"`
+	// Boletim é preenchido após merge com /api/ensino/meu-boletim/
+	Boletim     *BoletimEntry   `json:"-"`
 }
 
 type PaginatedDiaries struct {
@@ -175,15 +177,113 @@ func (d Diary) SalaShort() string {
 	return sala
 }
 
+func (d Diary) CargaHoraria() int {
+	if d.Boletim != nil {
+		return d.Boletim.CargaHoraria
+	}
+	return d.Disciplina.CHTotal
+}
+
+func (d Diary) NumeroFaltas() int {
+	if d.Boletim != nil {
+		return d.Boletim.NumeroFaltas
+	}
+	return d.Disciplina.QtdFaltas
+}
+
+func (d Diary) Frequencia() float64 {
+	if d.Boletim != nil {
+		return d.Boletim.PercentualCargaHorariaFrequentada
+	}
+	return d.Disciplina.Frequencia
+}
+
 func (d Diary) MaxFaltas() int {
-	if d.Disciplina.CHTotal == 0 {
+	ch := d.CargaHoraria()
+	if ch == 0 {
 		return 0
 	}
-	return int(float64(d.Disciplina.CHTotal) * 0.25)
+	return int(float64(ch) * 0.25)
 }
 
 func (d Diary) PodeEFaltar() int {
-	return d.MaxFaltas() - d.Disciplina.QtdFaltas
+	return d.MaxFaltas() - d.NumeroFaltas()
+}
+
+func (d Diary) Nome() string {
+	if d.Boletim != nil && d.Boletim.Disciplina != "" {
+		// "TEC.0017 - Arquitetura de Computadores" → "Arquitetura de Computadores"
+		parts := strings.SplitN(d.Boletim.Disciplina, " - ", 2)
+		if len(parts) == 2 {
+			return strings.TrimSpace(parts[1])
+		}
+		return d.Boletim.Disciplina
+	}
+	return d.Disciplina.Descricao
+}
+
+// Boletim — from /api/ensino/meu-boletim/{ano}/{periodo}/
+// Esta é a fonte correta para faltas, frequência e notas reais.
+
+type BoletimNota struct {
+	Nota   *float64 `json:"nota"`
+	Faltas int      `json:"faltas"`
+}
+
+type BoletimEntry struct {
+	CodigoDiario                    string       `json:"codigo_diario"`
+	Disciplina                      string       `json:"disciplina"`
+	CargaHoraria                    int          `json:"carga_horaria"`
+	CargaHorariaCumprida            int          `json:"carga_horaria_cumprida"`
+	NumeroFaltas                    int          `json:"numero_faltas"`
+	PercentualCargaHorariaFrequentada float64    `json:"percentual_carga_horaria_frequentada"`
+	Situacao                        string       `json:"situacao"`
+	QuantidadeAvaliacoes            int          `json:"quantidade_avaliacoes"`
+	NotaEtapa1                      BoletimNota  `json:"nota_etapa_1"`
+	NotaEtapa2                      BoletimNota  `json:"nota_etapa_2"`
+	NotaEtapa3                      BoletimNota  `json:"nota_etapa_3"`
+	NotaEtapa4                      BoletimNota  `json:"nota_etapa_4"`
+	MediaDisciplina                 *float64     `json:"media_disciplina"`
+	NotaAvaliacaoFinal              BoletimNota  `json:"nota_avaliacao_final"`
+	MediaFinalDisciplina            *float64     `json:"media_final_disciplina"`
+}
+
+type PaginatedBoletim struct {
+	Results []BoletimEntry `json:"results"`
+	Count   int            `json:"count"`
+}
+
+// Notas retorna as etapas com nota lançada
+func (b BoletimEntry) Notas() []struct {
+	Etapa int
+	Nota  float64
+	Faltas int
+} {
+	etapas := []struct {
+		N *float64
+		F int
+		E int
+	}{
+		{b.NotaEtapa1.Nota, b.NotaEtapa1.Faltas, 1},
+		{b.NotaEtapa2.Nota, b.NotaEtapa2.Faltas, 2},
+		{b.NotaEtapa3.Nota, b.NotaEtapa3.Faltas, 3},
+		{b.NotaEtapa4.Nota, b.NotaEtapa4.Faltas, 4},
+	}
+	var out []struct {
+		Etapa  int
+		Nota   float64
+		Faltas int
+	}
+	for _, e := range etapas {
+		if e.N != nil {
+			out = append(out, struct {
+				Etapa  int
+				Nota   float64
+				Faltas int
+			}{e.E, *e.N, e.F})
+		}
+	}
+	return out
 }
 
 // Completion requirements — from /api/ensino/requisitos-conclusao/

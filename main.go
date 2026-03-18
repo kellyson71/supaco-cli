@@ -67,9 +67,16 @@ func runQuick(cmd string) {
 	academic, _ := client.GetAcademicData()
 	periods, _ := client.GetPeriods()
 	semestre := api.LatestSemester(periods)
+	latest := api.LatestPeriod(periods)
 	var diaries []api.Diary
 	if semestre != "" {
 		diaries, _ = client.GetDiaries(semestre)
+		if latest != nil {
+			b, err := client.GetBoletim(latest.AnoLetivo, latest.PeriodoLetivo)
+			if err == nil {
+				diaries = api.MergeBoletim(diaries, b)
+			}
+		}
 	}
 
 	switch cmd {

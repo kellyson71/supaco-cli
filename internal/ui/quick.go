@@ -71,7 +71,7 @@ func QuickToday(diaries []api.Diary, semestre string) string {
 	for _, e := range entries {
 		d := e.d
 		b := e.b
-		freq := d.Disciplina.Frequencia
+		freq := d.Frequencia()
 		restante := d.PodeEFaltar()
 
 		var freqBadge string
@@ -87,7 +87,7 @@ func QuickToday(diaries []api.Diary, semestre string) string {
 		}
 
 		timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#06B6D4")).Bold(true).Width(16).Render(b.Start + " – " + b.End)
-		nome := BoldStyle.Render(d.Disciplina.Descricao)
+		nome := BoldStyle.Render(d.Nome())
 		prof := MutedStyle.Render(d.ProfNames())
 		sala := ""
 		if s := d.SalaShort(); s != "" {
@@ -128,7 +128,7 @@ func QuickWeek(diaries []api.Diary, semestre string) string {
 				if ptWeekdays[dia] == day.idx {
 					classes = append(classes, struct {
 						start, end, nome, prof, sala string
-					}{b.Start, b.End, d.Disciplina.Descricao, d.ProfNames(), d.SalaShort()})
+					}{b.Start, b.End, d.Nome(), d.ProfNames(), d.SalaShort()})
 				}
 			}
 		}
@@ -183,8 +183,8 @@ func QuickFaltas(diaries []api.Diary, semestre string) string {
 	nameW := 36
 
 	for _, d := range diaries {
-		freq := d.Disciplina.Frequencia
-		faltas := d.Disciplina.QtdFaltas
+		freq := d.Frequencia()
+		faltas := d.NumeroFaltas()
 		maxF := d.MaxFaltas()
 		restante := d.PodeEFaltar()
 
@@ -205,7 +205,7 @@ func QuickFaltas(diaries []api.Diary, semestre string) string {
 			nameStyle = DangerStyle
 		}
 
-		nome := d.Disciplina.Descricao
+		nome := d.Nome()
 		if len(nome) > nameW {
 			nome = nome[:nameW-1] + "…"
 		}
@@ -238,7 +238,7 @@ func QuickNotas(diaries []api.Diary, academic *api.AcademicData, semestre string
 
 	nameW := 36
 	for _, d := range diaries {
-		nome := d.Disciplina.Descricao
+		nome := d.Nome()
 		if len(nome) > nameW {
 			nome = nome[:nameW-1] + "…"
 		}
@@ -327,7 +327,7 @@ func QuickStatus(diaries []api.Diary, academic *api.AcademicData, msgs *api.Mess
 				if ptWeekdays[dia] == todayIdx {
 					sb.WriteString("    " +
 						lipgloss.NewStyle().Foreground(lipgloss.Color("#06B6D4")).Width(14).Render(b.Start+"–"+b.End) +
-						"  " + BoldStyle.Render(d.Disciplina.Descricao) + "\n")
+						"  " + BoldStyle.Render(d.Nome()) + "\n")
 				}
 			}
 		}
@@ -340,9 +340,9 @@ func QuickStatus(diaries []api.Diary, academic *api.AcademicData, msgs *api.Mess
 	critical := 0
 	ok := 0
 	for _, d := range diaries {
-		f := d.Disciplina.Frequencia
+		f := d.Frequencia()
 		switch {
-		case f < 75 && (f > 0 || d.Disciplina.QtdFaltas > 0):
+		case f < 75 && (f > 0 || d.NumeroFaltas() > 0):
 			critical++
 		case f < 85 && f > 0:
 			atRisk++

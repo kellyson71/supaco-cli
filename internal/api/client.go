@@ -127,6 +127,13 @@ func (c *Client) GetDiaries(semestre string) ([]Diary, error) {
 	return paginated.Results, err
 }
 
+func (c *Client) GetBoletim(ano, periodo int) ([]BoletimEntry, error) {
+	var paginated PaginatedBoletim
+	path := fmt.Sprintf("/api/ensino/meu-boletim/%d/%d/", ano, periodo)
+	err := c.get(path, &paginated)
+	return paginated.Results, err
+}
+
 func (c *Client) GetCompletionReqs() (*CompletionReqs, error) {
 	var cr CompletionReqs
 	err := c.get("/api/ensino/requisitos-conclusao/", &cr)
@@ -137,6 +144,35 @@ func (c *Client) GetUnreadMessages() (*MessagesResponse, error) {
 	var msgs MessagesResponse
 	err := c.get("/api/edu/mensagens/entrada/nao_lidas/?page=1", &msgs)
 	return &msgs, err
+}
+
+// MergeBoletim faz o merge dos dados do boletim nos diários pelo codigo_diario
+func MergeBoletim(diaries []Diary, boletim []BoletimEntry) []Diary {
+	index := make(map[string]*BoletimEntry, len(boletim))
+	for i := range boletim {
+		index[boletim[i].CodigoDiario] = &boletim[i]
+	}
+	for i := range diaries {
+		id := fmt.Sprintf("%d", diaries[i].ID)
+		if b, ok := index[id]; ok {
+			diaries[i].Boletim = b
+		}
+	}
+	return diaries
+}
+
+// LatestPeriod returns the most recent Period struct
+func LatestPeriod(periods []Period) *Period {
+	if len(periods) == 0 {
+		return nil
+	}
+	latest := periods[0]
+	for _, p := range periods[1:] {
+		if p.AnoLetivo > latest.AnoLetivo || (p.AnoLetivo == latest.AnoLetivo && p.PeriodoLetivo > latest.PeriodoLetivo) {
+			latest = p
+		}
+	}
+	return &latest
 }
 
 // LatestSemester returns the most recent semestre string like "2024.1"
