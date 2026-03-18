@@ -165,6 +165,31 @@ var (
 		Padding(0, 1)
 )
 
+// AbsenceBar renders a bar that fills as absences increase (green→yellow→red)
+func AbsenceBar(usedPct float64, width int) string {
+	if width <= 0 {
+		width = 20
+	}
+	filled := int(float64(width) * usedPct / 100.0)
+	if filled > width {
+		filled = width
+	}
+	empty := width - filled
+
+	var color lipgloss.Color
+	switch {
+	case usedPct >= 100:
+		color = red
+	case usedPct >= 70:
+		color = yellow
+	default:
+		color = green
+	}
+
+	return lipgloss.NewStyle().Foreground(color).Render(repeat("█", filled)) +
+		lipgloss.NewStyle().Foreground(darkGray).Render(repeat("░", empty))
+}
+
 // ProgressBar renders a simple colored progress bar
 func ProgressBar(percent float64, width int) string {
 	if width <= 0 {

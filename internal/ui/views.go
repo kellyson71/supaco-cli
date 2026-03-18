@@ -153,29 +153,31 @@ func renderClassCard(d api.Diary, b api.DayBlock, dayName string, cardW int) str
 		sala = MutedStyle.Render("  ·  " + s)
 	}
 
-	freq := d.Frequencia()
 	faltas := d.NumeroFaltas()
 	maxF := d.MaxFaltas()
+	chTotal := d.CargaHoraria()
+	chDada := d.CargaHorariaCumprida()
 	restante := d.PodeEFaltar()
+	usedPct := d.AbsenceUsagePct()
 
 	barW := 18
-	bar := ProgressBar(freq, barW)
+	bar := AbsenceBar(usedPct, barW)
 
 	var badge string
 	var borderC lipgloss.Color
 	switch {
-	case faltas == 0 && freq == 0:
-		badge = BadgeBlueStyle.Render(" Sem faltas ")
+	case maxF == 0:
+		badge = BadgeBlueStyle.Render(" Sem dados ")
 		borderC = violet
-	case freq >= 85:
-		badge = BadgeGreenStyle.Render(fmt.Sprintf(" Pode faltar %dx ", restante))
-		borderC = green
-	case freq >= 75:
+	case restante <= 0:
+		badge = BadgeRedStyle.Render(" REPROVADO por falta! ")
+		borderC = red
+	case restante <= int(float64(maxF)*0.3):
 		badge = BadgeYellowStyle.Render(fmt.Sprintf(" Atencao! %dx restante ", restante))
 		borderC = yellow
 	default:
-		badge = BadgeRedStyle.Render(" REPROVADO por falta! ")
-		borderC = red
+		badge = BadgeGreenStyle.Render(fmt.Sprintf(" Pode faltar %dx ", restante))
+		borderC = green
 	}
 
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -185,10 +187,10 @@ func renderClassCard(d api.Diary, b api.DayBlock, dayName string, cardW int) str
 	)
 	row2 := "     " + prof + sala
 	row3 := "     " + bar + "  " +
-		lipgloss.NewStyle().Foreground(muted).Render(fmt.Sprintf("%.1f%%", freq)) +
+		MutedStyle.Render(fmt.Sprintf("%d/%d faltas", faltas, maxF)) +
 		"   " + badge
-	row4 := "     " + MutedStyle.Render(fmt.Sprintf("Faltas: %d / max %d  ·  CH: %dh",
-		faltas, maxF, d.CargaHoraria()))
+	row4 := "     " + MutedStyle.Render(fmt.Sprintf("CH: %dh dadas / %dh total  ·  25%% = max %d faltas",
+		chDada, chTotal, maxF))
 
 	inner := lipgloss.JoinVertical(lipgloss.Left, row1, row2, "", row3, row4)
 
@@ -314,43 +316,48 @@ func RenderAbsences(diaries []api.Diary, width int) string {
 
 	var cards []string
 	for _, d := range diaries {
-		freq := d.Frequencia()
 		faltas := d.NumeroFaltas()
 		maxF := d.MaxFaltas()
+		chTotal := d.CargaHoraria()
+		chDada := d.CargaHorariaCumprida()
 		restante := d.PodeEFaltar()
+		usedPct := d.AbsenceUsagePct()
 
 		var badge string
 		var borderC lipgloss.Color
 		switch {
-		case faltas == 0 && freq == 0:
+		case maxF == 0:
 			badge = BadgeBlueStyle.Render(" Semestre iniciando ")
 			borderC = violet
-		case freq >= 85:
-			badge = BadgeGreenStyle.Render(fmt.Sprintf(" PODE FALTAR %dx ", restante))
-			borderC = green
-		case freq >= 75:
+		case restante <= 0:
+			badge = BadgeRedStyle.Render(" REPROVADO POR FALTA ")
+			borderC = red
+		case restante <= int(float64(maxF)*0.3):
 			badge = BadgeYellowStyle.Render(fmt.Sprintf(" ATENCAO! %dx restante ", restante))
 			borderC = yellow
 		default:
-			badge = BadgeRedStyle.Render(" REPROVADO POR FALTA ")
-			borderC = red
+			badge = BadgeGreenStyle.Render(fmt.Sprintf(" PODE FALTAR %dx ", restante))
+			borderC = green
 		}
 
-		bar := ProgressBar(freq, 22)
+		bar := AbsenceBar(usedPct, 22)
 		nameW := cardW - 28
 		if nameW < 20 {
 			nameW = 20
 		}
+
+		faltasDetail := fmt.Sprintf("%d faltas  ·  max %d  (25%% de %dh)", faltas, maxF, chTotal)
+		chDetail := fmt.Sprintf("CH dada: %dh / %dh total", chDada, chTotal)
 
 		inner := lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.JoinHorizontal(lipgloss.Top,
 				lipgloss.NewStyle().Width(nameW).Render(BoldStyle.Render(d.Nome())),
 				badge,
 			),
-			MutedStyle.Render(fmt.Sprintf("Faltas: %d  ·  Max: %d  ·  CH: %dh",
-				faltas, maxF, d.CargaHoraria())),
+			MutedStyle.Render(faltasDetail),
+			MutedStyle.Render(chDetail),
 			"",
-			bar+" "+lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(fmt.Sprintf("%.1f%%", freq)),
+			bar+" "+MutedStyle.Render(fmt.Sprintf("%.0f%% do limite usado", usedPct)),
 		)
 
 		cards = append(cards, lipgloss.NewStyle().
@@ -389,54 +396,104 @@ func RenderGrades(diaries []api.Diary, academic *api.AcademicData, width int) st
 
 	var cards []string
 	for _, d := range diaries {
-		name := BoldStyle.Render(d.Nome())
-
 		var notasParts []string
-		for _, n := range d.Disciplina.Notas {
-			var s lipgloss.Style
-			switch {
-			case n.Nota >= 7:
-				s = lipgloss.NewStyle().Foreground(green).Bold(true)
-			case n.Nota >= 5:
-				s = lipgloss.NewStyle().Foreground(yellow).Bold(true)
-			default:
-				s = lipgloss.NewStyle().Foreground(red).Bold(true)
+		var mediaLine string
+		var situacaoBadge string
+		borderC := darkGray
+
+		if b := d.Boletim; b != nil {
+			for _, n := range b.Notas() {
+				var s lipgloss.Style
+				switch {
+				case n.Nota >= 7:
+					s = lipgloss.NewStyle().Foreground(green).Bold(true)
+				case n.Nota >= 5:
+					s = lipgloss.NewStyle().Foreground(yellow).Bold(true)
+				default:
+					s = lipgloss.NewStyle().Foreground(red).Bold(true)
+				}
+				label := MutedStyle.Render(fmt.Sprintf("N%d:", n.Etapa))
+				nota := s.Render(fmt.Sprintf("%.1f", n.Nota))
+				if n.Faltas > 0 {
+					nota += MutedStyle.Render(fmt.Sprintf("(%df)", n.Faltas))
+				}
+				notasParts = append(notasParts, label+" "+nota)
 			}
-			notasParts = append(notasParts,
-				MutedStyle.Render(fmt.Sprintf("N%d: ", n.Etapa))+s.Render(fmt.Sprintf("%.1f", n.Nota)),
-			)
+			if b.MediaDisciplina != nil {
+				m := *b.MediaDisciplina
+				var ms lipgloss.Style
+				switch {
+				case m >= 7:
+					ms = SuccessStyle
+				case m >= 5:
+					ms = WarningStyle
+				default:
+					ms = DangerStyle
+				}
+				mediaLine = MutedStyle.Render("Media: ") + ms.Render(fmt.Sprintf("%.2f", m))
+				if b.MediaFinalDisciplina != nil && *b.MediaFinalDisciplina != m {
+					mf := *b.MediaFinalDisciplina
+					var mfs lipgloss.Style
+					switch {
+					case mf >= 7:
+						mfs = SuccessStyle
+					case mf >= 5:
+						mfs = WarningStyle
+					default:
+						mfs = DangerStyle
+					}
+					mediaLine += "   " + MutedStyle.Render("Final: ") + mfs.Render(fmt.Sprintf("%.2f", mf))
+				}
+			}
+			switch b.Situacao {
+			case "Aprovado":
+				situacaoBadge = BadgeGreenStyle.Render(" Aprovado ")
+				borderC = green
+			case "Reprovado":
+				situacaoBadge = BadgeRedStyle.Render(" Reprovado ")
+				borderC = red
+			default:
+				situacaoBadge = BadgeBlueStyle.Render(" " + b.Situacao + " ")
+			}
+		} else {
+			for _, n := range d.Disciplina.Notas {
+				var s lipgloss.Style
+				switch {
+				case n.Nota >= 7:
+					s = lipgloss.NewStyle().Foreground(green).Bold(true)
+				case n.Nota >= 5:
+					s = lipgloss.NewStyle().Foreground(yellow).Bold(true)
+				default:
+					s = lipgloss.NewStyle().Foreground(red).Bold(true)
+				}
+				notasParts = append(notasParts,
+					MutedStyle.Render(fmt.Sprintf("N%d:", n.Etapa))+" "+s.Render(fmt.Sprintf("%.1f", n.Nota)),
+				)
+			}
 		}
 
-		var mediasParts []string
-		for _, m := range d.Disciplina.Medias {
-			var s lipgloss.Style
-			switch {
-			case m.Media >= 7:
-				s = SuccessStyle
-			case m.Media >= 5:
-				s = WarningStyle
-			default:
-				s = DangerStyle
-			}
-			mediasParts = append(mediasParts,
-				MutedStyle.Render(m.Descricao+": ")+s.Render(fmt.Sprintf("%.1f", m.Media)),
-			)
+		nameW := cardW - 20
+		if nameW < 20 {
+			nameW = 20
 		}
+		header := lipgloss.JoinHorizontal(lipgloss.Top,
+			lipgloss.NewStyle().Width(nameW).Render(BoldStyle.Render(d.Nome())),
+			situacaoBadge,
+		)
 
 		gradesLine := strings.Join(notasParts, "   ")
 		if gradesLine == "" {
 			gradesLine = MutedStyle.Render("Sem notas lancadas ainda")
 		}
-		mediasLine := strings.Join(mediasParts, "   ")
 
-		lines := []string{name, "", gradesLine}
-		if mediasLine != "" {
-			lines = append(lines, mediasLine)
+		lines := []string{header, "", gradesLine}
+		if mediaLine != "" {
+			lines = append(lines, "", mediaLine)
 		}
 
 		cards = append(cards, lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(darkGray).
+			BorderForeground(borderC).
 			Padding(1, 2).
 			Width(cardW).
 			Margin(0, 2, 1, 2).

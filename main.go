@@ -30,6 +30,10 @@ func main() {
 		runQuick("notas")
 	case "status":
 		runQuick("status")
+	case "perfil", "profile":
+		runQuick("perfil")
+	case "msgs", "mensagens", "messages":
+		runQuick("msgs")
 	case "help", "--help", "-h":
 		printHelp()
 	default:
@@ -64,10 +68,24 @@ func runQuick(cmd string) {
 	}
 
 	// Fetch data needed for the command
-	academic, _ := client.GetAcademicData()
 	periods, _ := client.GetPeriods()
 	semestre := api.LatestSemester(periods)
 	latest := api.LatestPeriod(periods)
+
+	// Commands that don't need diary/boletim data
+	switch cmd {
+	case "msgs":
+		msgs, _ := client.GetUnreadMessages()
+		fmt.Println(ui.QuickMsgs(msgs, semestre))
+		return
+	case "perfil":
+		academic, _ := client.GetAcademicData()
+		completion, _ := client.GetCompletionReqs()
+		fmt.Println(ui.QuickPerfil(academic, completion, cfg.Matricula, semestre))
+		return
+	}
+
+	// Commands that need diary + boletim data
 	var diaries []api.Diary
 	if semestre != "" {
 		diaries, _ = client.GetDiaries(semestre)
@@ -87,8 +105,10 @@ func runQuick(cmd string) {
 	case "faltas":
 		fmt.Println(ui.QuickFaltas(diaries, semestre))
 	case "notas":
+		academic, _ := client.GetAcademicData()
 		fmt.Println(ui.QuickNotas(diaries, academic, semestre))
 	case "status":
+		academic, _ := client.GetAcademicData()
 		msgs, _ := client.GetUnreadMessages()
 		fmt.Println(ui.QuickStatus(diaries, academic, msgs, semestre, cfg.Matricula))
 	}
@@ -123,9 +143,11 @@ func printHelp() {
 		{"          ", "Abre o painel interativo (TUI)"},
 		{"hoje      ", "Aulas de hoje"},
 		{"semana    ", "Grade da semana"},
-		{"faltas    ", "Frequência e limite de faltas"},
-		{"notas     ", "Notas do semestre"},
-		{"status    ", "Resumo rápido (IRA, hoje, alertas)"},
+		{"faltas    ", "Frequencia e limite de faltas"},
+		{"notas     ", "Notas e medias do semestre"},
+		{"status    ", "Resumo rapido (IRA, hoje, alertas)"},
+		{"perfil    ", "Perfil academico e progresso do curso"},
+		{"msgs      ", "Mensagens nao lidas"},
 	}
 	for _, c := range cmds {
 		fmt.Printf("  %s  %s\n", cmdStyle.Render(c[0]), descStyle.Render(c[1]))

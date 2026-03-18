@@ -539,11 +539,14 @@ func (a *App) buildStatusPanel(w int) []string {
 	critical := 0
 	ok := 0
 	for _, d := range a.diaries {
-		f := d.Frequencia()
+		maxF := d.MaxFaltas()
+		restante := d.PodeEFaltar()
 		switch {
-		case f < 75 && (f > 0 || d.NumeroFaltas() > 0):
+		case maxF == 0:
+			ok++
+		case restante <= 0:
 			critical++
-		case f < 85 && f > 0:
+		case restante <= int(float64(maxF)*0.3):
 			atRisk++
 		default:
 			ok++

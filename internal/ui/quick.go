@@ -71,19 +71,21 @@ func QuickToday(diaries []api.Diary, semestre string) string {
 	for _, e := range entries {
 		d := e.d
 		b := e.b
-		freq := d.Frequencia()
+		faltas := d.NumeroFaltas()
+		maxF := d.MaxFaltas()
 		restante := d.PodeEFaltar()
+		usedPct := d.AbsenceUsagePct()
 
 		var freqBadge string
 		switch {
-		case freq >= 85:
-			freqBadge = BadgeGreenStyle.Render(fmt.Sprintf(" pode faltar %dx ", restante))
-		case freq >= 75:
-			freqBadge = BadgeYellowStyle.Render(fmt.Sprintf(" atencao! %dx ", restante))
-		case freq == 0:
+		case maxF == 0:
 			freqBadge = BadgeBlueStyle.Render(" iniciando ")
-		default:
+		case restante <= 0:
 			freqBadge = BadgeRedStyle.Render(" reprovado por falta ")
+		case restante <= int(float64(maxF)*0.3):
+			freqBadge = BadgeYellowStyle.Render(fmt.Sprintf(" atencao! %dx ", restante))
+		default:
+			freqBadge = BadgeGreenStyle.Render(fmt.Sprintf(" pode faltar %dx ", restante))
 		}
 
 		timeStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#06B6D4")).Bold(true).Width(16).Render(b.Start + " – " + b.End)
@@ -93,11 +95,12 @@ func QuickToday(diaries []api.Diary, semestre string) string {
 		if s := d.SalaShort(); s != "" {
 			sala = MutedStyle.Render(" · " + s)
 		}
-		freqStr := lipgloss.NewStyle().Foreground(muted).Render(fmt.Sprintf("%.1f%%", freq))
+		bar := AbsenceBar(usedPct, 10)
+		faltasStr := MutedStyle.Render(fmt.Sprintf("%d/%d faltas", faltas, maxF))
 
 		sb.WriteString("  " + timeStr + " " + nome + "\n")
 		sb.WriteString("  " + strings.Repeat(" ", 16) + " " + prof + sala + "\n")
-		sb.WriteString("  " + strings.Repeat(" ", 16) + " " + freqStr + "  " + freqBadge + "\n")
+		sb.WriteString("  " + strings.Repeat(" ", 16) + " " + bar + "  " + faltasStr + "  " + freqBadge + "\n")
 		sb.WriteString("\n")
 	}
 
@@ -183,26 +186,28 @@ func QuickFaltas(diaries []api.Diary, semestre string) string {
 	nameW := 36
 
 	for _, d := range diaries {
-		freq := d.Frequencia()
 		faltas := d.NumeroFaltas()
 		maxF := d.MaxFaltas()
+		chTotal := d.CargaHoraria()
+		chDada := d.CargaHorariaCumprida()
 		restante := d.PodeEFaltar()
+		usedPct := d.AbsenceUsagePct()
 
 		var badge string
 		var nameStyle lipgloss.Style
 		switch {
-		case faltas == 0 && freq == 0:
+		case maxF == 0:
 			badge = BadgeBlueStyle.Render(" iniciando ")
 			nameStyle = BoldStyle
-		case freq >= 85:
-			badge = BadgeGreenStyle.Render(fmt.Sprintf(" PODE FALTAR %dx ", restante))
-			nameStyle = BoldStyle
-		case freq >= 75:
+		case restante <= 0:
+			badge = BadgeRedStyle.Render(" REPROVADO POR FALTA ")
+			nameStyle = DangerStyle
+		case restante <= int(float64(maxF)*0.3):
 			badge = BadgeYellowStyle.Render(fmt.Sprintf(" ATENCAO! %dx restante ", restante))
 			nameStyle = WarningStyle
 		default:
-			badge = BadgeRedStyle.Render(" REPROVADO POR FALTA ")
-			nameStyle = DangerStyle
+			badge = BadgeGreenStyle.Render(fmt.Sprintf(" PODE FALTAR %dx ", restante))
+			nameStyle = BoldStyle
 		}
 
 		nome := d.Nome()
@@ -210,11 +215,11 @@ func QuickFaltas(diaries []api.Diary, semestre string) string {
 			nome = nome[:nameW-1] + "…"
 		}
 		nameCol := nameStyle.Width(nameW).Render(nome)
-		bar := ProgressBar(freq, 14)
-		freqStr := lipgloss.NewStyle().Foreground(muted).Width(7).Render(fmt.Sprintf("%.1f%%", freq))
-		faltasStr := MutedStyle.Render(fmt.Sprintf("%d/%d", faltas, maxF))
+		bar := AbsenceBar(usedPct, 14)
+		faltasStr := MutedStyle.Render(fmt.Sprintf("%d/%d faltas", faltas, maxF))
+		chStr := MutedStyle.Render(fmt.Sprintf("(%dh/%dh)", chDada, chTotal))
 
-		sb.WriteString("  " + nameCol + "  " + bar + "  " + freqStr + " " + faltasStr + "  " + badge + "\n")
+		sb.WriteString("  " + nameCol + "  " + bar + "  " + faltasStr + " " + chStr + "  " + badge + "\n")
 	}
 
 	sb.WriteString("\n")
@@ -242,42 +247,84 @@ func QuickNotas(diaries []api.Diary, academic *api.AcademicData, semestre string
 		if len(nome) > nameW {
 			nome = nome[:nameW-1] + "…"
 		}
-		nameCol := BoldStyle.Width(nameW).Render(nome)
 
 		var notasParts []string
-		for _, n := range d.Disciplina.Notas {
-			var s lipgloss.Style
-			switch {
-			case n.Nota >= 7:
-				s = SuccessStyle
-			case n.Nota >= 5:
-				s = WarningStyle
-			default:
-				s = DangerStyle
+		var mediaStr string
+		var situacaoStr string
+
+		if b := d.Boletim; b != nil {
+			for _, n := range b.Notas() {
+				var s lipgloss.Style
+				switch {
+				case n.Nota >= 7:
+					s = SuccessStyle
+				case n.Nota >= 5:
+					s = WarningStyle
+				default:
+					s = DangerStyle
+				}
+				label := MutedStyle.Render(fmt.Sprintf("N%d:", n.Etapa))
+				notasParts = append(notasParts, label+" "+s.Render(fmt.Sprintf("%.1f", n.Nota)))
 			}
-			notasParts = append(notasParts, MutedStyle.Render(fmt.Sprintf("N%d:", n.Etapa))+s.Render(fmt.Sprintf("%.1f", n.Nota)))
+			if b.MediaDisciplina != nil {
+				m := *b.MediaDisciplina
+				var ms lipgloss.Style
+				switch {
+				case m >= 7:
+					ms = SuccessStyle
+				case m >= 5:
+					ms = WarningStyle
+				default:
+					ms = DangerStyle
+				}
+				mediaStr = "  " + MutedStyle.Render("Media:") + " " + ms.Render(fmt.Sprintf("%.2f", m))
+				if b.MediaFinalDisciplina != nil && *b.MediaFinalDisciplina != m {
+					mf := *b.MediaFinalDisciplina
+					var mfs lipgloss.Style
+					switch {
+					case mf >= 7:
+						mfs = SuccessStyle
+					case mf >= 5:
+						mfs = WarningStyle
+					default:
+						mfs = DangerStyle
+					}
+					mediaStr += "  " + MutedStyle.Render("Final:") + " " + mfs.Render(fmt.Sprintf("%.2f", mf))
+				}
+			}
+			switch b.Situacao {
+			case "Aprovado":
+				situacaoStr = "  " + BadgeGreenStyle.Render(" Aprovado ")
+			case "Reprovado":
+				situacaoStr = "  " + BadgeRedStyle.Render(" Reprovado ")
+			case "Cursando":
+				// no badge, keep quiet
+			default:
+				if b.Situacao != "" {
+					situacaoStr = "  " + BadgeBlueStyle.Render(" "+b.Situacao+" ")
+				}
+			}
+		} else {
+			for _, n := range d.Disciplina.Notas {
+				var s lipgloss.Style
+				switch {
+				case n.Nota >= 7:
+					s = SuccessStyle
+				case n.Nota >= 5:
+					s = WarningStyle
+				default:
+					s = DangerStyle
+				}
+				notasParts = append(notasParts, MutedStyle.Render(fmt.Sprintf("N%d:", n.Etapa))+" "+s.Render(fmt.Sprintf("%.1f", n.Nota)))
+			}
 		}
 
 		notasStr := strings.Join(notasParts, "  ")
 		if notasStr == "" {
 			notasStr = MutedStyle.Render("sem notas")
 		}
-
-		var mediaStr string
-		for _, m := range d.Disciplina.Medias {
-			var s lipgloss.Style
-			switch {
-			case m.Media >= 7:
-				s = SuccessStyle
-			case m.Media >= 5:
-				s = WarningStyle
-			default:
-				s = DangerStyle
-			}
-			mediaStr += "  " + MutedStyle.Render(m.Descricao+":") + s.Render(fmt.Sprintf("%.1f", m.Media))
-		}
-
-		sb.WriteString("  " + nameCol + "  " + notasStr + mediaStr + "\n")
+		nameCol := BoldStyle.Width(nameW).Render(nome)
+		sb.WriteString("  " + nameCol + "  " + notasStr + mediaStr + situacaoStr + "\n")
 	}
 
 	sb.WriteString("\n")
@@ -340,11 +387,14 @@ func QuickStatus(diaries []api.Diary, academic *api.AcademicData, msgs *api.Mess
 	critical := 0
 	ok := 0
 	for _, d := range diaries {
-		f := d.Frequencia()
+		maxF := d.MaxFaltas()
+		restante := d.PodeEFaltar()
 		switch {
-		case f < 75 && (f > 0 || d.NumeroFaltas() > 0):
+		case maxF == 0:
+			ok++
+		case restante <= 0:
 			critical++
-		case f < 85 && f > 0:
+		case restante <= int(float64(maxF)*0.3):
 			atRisk++
 		default:
 			ok++
@@ -365,6 +415,80 @@ func QuickStatus(diaries []api.Diary, academic *api.AcademicData, msgs *api.Mess
 	// Notifications
 	if msgs != nil && msgs.Count > 0 {
 		sb.WriteString("  " + BadgeYellowStyle.Render(fmt.Sprintf(" %d notificacao(oes) nao lida(s) ", msgs.Count)) + "\n\n")
+	}
+
+	return sb.String()
+}
+
+// QuickPerfil prints the academic profile
+func QuickPerfil(academic *api.AcademicData, completion *api.CompletionReqs, matricula, semestre string) string {
+	var sb strings.Builder
+	sb.WriteString(quickHeader("Perfil Academico", semestre))
+	sb.WriteString("\n\n")
+
+	if academic == nil {
+		sb.WriteString("  " + MutedStyle.Render("Sem dados de perfil.") + "\n")
+		return sb.String()
+	}
+
+	ira := academic.IRAFloat()
+	var iraStyle lipgloss.Style
+	switch {
+	case ira >= 8:
+		iraStyle = SuccessStyle
+	case ira >= 6:
+		iraStyle = WarningStyle
+	default:
+		iraStyle = DangerStyle
+	}
+
+	label := func(s string) string { return MutedStyle.Width(14).Render(s) }
+
+	sb.WriteString("  " + label("Matricula:") + lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(matricula) + "\n")
+	sb.WriteString("  " + label("E-mail:") + BoldStyle.Render(academic.EmailAcademico) + "\n")
+	sb.WriteString("\n")
+	sb.WriteString("  " + label("Curso:") + BoldStyle.Render(academic.CursoNome()) + "\n")
+	sb.WriteString("  " + label("Situacao:") + SuccessStyle.Render(academic.Situacao) + "\n")
+	sb.WriteString("  " + label("Ingresso:") + MutedStyle.Render(academic.Ingresso) + "\n")
+	sb.WriteString("  " + label("Periodo:") + MutedStyle.Render(fmt.Sprintf("%dº", academic.PeriodoReferencia)) + "\n")
+	sb.WriteString("  " + label("IRA:") + iraStyle.Render(fmt.Sprintf("%.2f", ira)) + "\n")
+
+	if completion != nil {
+		pct := completion.Percentual()
+		bar := ProgressBar(pct, 20)
+		sb.WriteString("\n")
+		sb.WriteString("  " + SubtitleStyle.Render("Conclusao do Curso") + "\n")
+		sb.WriteString("  " + bar + "  " + lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(fmt.Sprintf("%.1f%%", pct)) + "\n")
+		sb.WriteString("  " + MutedStyle.Render(fmt.Sprintf(
+			"Obrigatorios: %dh/%dh  ·  Optativos: %dh/%dh",
+			completion.Obrigatorios.CHCumprida, completion.Obrigatorios.CHEsperada,
+			completion.Optativos.CHCumprida, completion.Optativos.CHEsperada,
+		)) + "\n")
+	}
+
+	sb.WriteString("\n")
+	return sb.String()
+}
+
+// QuickMsgs prints unread messages
+func QuickMsgs(msgs *api.MessagesResponse, semestre string) string {
+	var sb strings.Builder
+	sb.WriteString(quickHeader("Mensagens", semestre))
+	sb.WriteString("\n\n")
+
+	if msgs == nil || msgs.Count == 0 {
+		sb.WriteString("  " + SuccessStyle.Render("Nenhuma mensagem nao lida!") + "\n")
+		return sb.String()
+	}
+
+	sb.WriteString("  " + MutedStyle.Render(fmt.Sprintf("%d mensagem(ns) nao lida(s):", msgs.Count)) + "\n\n")
+
+	for _, m := range msgs.Results {
+		remetente := lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(m.Remetente)
+		data := MutedStyle.Render(m.Data)
+		assunto := BoldStyle.Render(m.Assunto)
+		sb.WriteString("  " + remetente + "  " + data + "\n")
+		sb.WriteString("  " + assunto + "\n\n")
 	}
 
 	return sb.String()

@@ -184,6 +184,22 @@ func (d Diary) CargaHoraria() int {
 	return d.Disciplina.CHTotal
 }
 
+func (d Diary) CargaHorariaCumprida() int {
+	if d.Boletim != nil {
+		return d.Boletim.CargaHorariaCumprida
+	}
+	return d.Disciplina.CHCumprida
+}
+
+// AbsenceUsagePct returns how much of the absence budget has been used (0-100+)
+func (d Diary) AbsenceUsagePct() float64 {
+	maxF := d.MaxFaltas()
+	if maxF == 0 {
+		return 0
+	}
+	return float64(d.NumeroFaltas()) / float64(maxF) * 100
+}
+
 func (d Diary) NumeroFaltas() int {
 	if d.Boletim != nil {
 		return d.Boletim.NumeroFaltas
