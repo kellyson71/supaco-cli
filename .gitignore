@@ -4,3 +4,7 @@ assets/*.gif
 assets/*.mp4
 assets/*.png
 assets/*.jpg
+pkg/
+src/
+*.pkg.tar.zst
+*.tar.gz
