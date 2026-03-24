@@ -186,6 +186,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case loginSuccessMsg:
 		a.cfg.AccessToken = msg.access
 		a.cfg.RefreshToken = msg.refresh
+		if a.login.LembrarSenha() {
+			a.cfg.Senha = a.login.Password()
+		} else {
+			a.cfg.Senha = ""
+		}
 		a.cfg.Save()
 		a.client.AccessToken = msg.access
 		a.client.RefreshToken = msg.refresh
@@ -253,15 +258,28 @@ func (a *App) updateLogin(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			if a.login.focused == 1 {
+			if a.login.focused == 2 {
+				// submit from toggle step
 				if !a.login.IsReady() {
 					a.login.err = "Preencha matricula e senha"
-					return a, nil
+					a.login.focused = 0
+					a.login.inputs[0].Focus()
+					return a, textinput.Blink
 				}
 				a.login.loading = true
 				a.screen = screenLoading
 				a.loadMsg = "Autenticando..."
 				return a, a.doLogin(a.login.Matricula(), a.login.Password())
+			}
+			if a.login.focused == 1 {
+				if !a.login.IsReady() {
+					a.login.err = "Preencha matricula e senha"
+					return a, nil
+				}
+				// advance to toggle
+				a.login.focused = 2
+				a.login.inputs[1].Blur()
+				return a, nil
 			}
 			// advance to password
 			a.login.focused = 1

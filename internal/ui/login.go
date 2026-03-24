@@ -17,10 +17,11 @@ const logoASCII = `
  |____/ \___/|_| /_/   \_\____\___/`
 
 type loginModel struct {
-	inputs  []textinput.Model
-	focused int
-	err     string
-	loading bool
+	inputs      []textinput.Model
+	focused     int
+	err         string
+	loading     bool
+	lembrarSenha bool
 }
 
 func newLoginModel() loginModel {
@@ -48,10 +49,22 @@ func newLoginModel() loginModel {
 func (m loginModel) Update(msg tea.Msg) (loginModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// On the toggle step, handle toggle keys before passing to inputs
+		if m.focused == 2 {
+			switch msg.String() {
+			case " ", "s", "S":
+				m.lembrarSenha = !m.lembrarSenha
+				return m, nil
+			case "n", "N":
+				m.lembrarSenha = false
+				return m, nil
+			}
+		}
 		switch msg.String() {
 		case "tab", "down":
 			m.err = ""
-			m.focused = (m.focused + 1) % len(m.inputs)
+			steps := len(m.inputs) + 1 // +1 for toggle step
+			m.focused = (m.focused + 1) % steps
 			for i := range m.inputs {
 				if i == m.focused {
 					m.inputs[i].Focus()
@@ -59,15 +72,22 @@ func (m loginModel) Update(msg tea.Msg) (loginModel, tea.Cmd) {
 					m.inputs[i].Blur()
 				}
 			}
+			if m.focused == 2 {
+				m.inputs[1].Blur()
+			}
 		case "shift+tab", "up":
 			m.err = ""
-			m.focused = (m.focused - 1 + len(m.inputs)) % len(m.inputs)
+			steps := len(m.inputs) + 1
+			m.focused = (m.focused - 1 + steps) % steps
 			for i := range m.inputs {
 				if i == m.focused {
 					m.inputs[i].Focus()
 				} else {
 					m.inputs[i].Blur()
 				}
+			}
+			if m.focused == 2 {
+				m.inputs[1].Blur()
 			}
 		}
 	}
@@ -120,6 +140,27 @@ func (m loginModel) View(width, height int) string {
 			Render("Entrar →")
 	}
 
+	// Lembrar senha toggle
+	var toggleLine string
+	if m.focused == 2 {
+		check := "[ ]"
+		if m.lembrarSenha {
+			check = "[x]"
+		}
+		toggleLine = lipgloss.NewStyle().
+			Foreground(violet).Bold(true).
+			Render(" > ") +
+			InputLabelStyle.Render("Lembrar senha? ") +
+			lipgloss.NewStyle().Foreground(cyan).Bold(true).Render(check) +
+			MutedStyle.Render("  espaco para alternar")
+	} else {
+		check := "[ ]"
+		if m.lembrarSenha {
+			check = "[x]"
+		}
+		toggleLine = MutedStyle.Render("   Lembrar senha? "+check)
+	}
+
 	errMsg := ""
 	if m.err != "" {
 		errMsg = DangerStyle.Render(" x " + m.err)
@@ -133,6 +174,8 @@ func (m loginModel) View(width, height int) string {
 		"",
 		pwdLabel,
 		pwdInput,
+		"",
+		toggleLine,
 		"",
 		" "+btn,
 		"",
@@ -165,6 +208,10 @@ func (m loginModel) Matricula() string {
 
 func (m loginModel) Password() string {
 	return m.inputs[1].Value()
+}
+
+func (m loginModel) LembrarSenha() bool {
+	return m.lembrarSenha
 }
 
 func (m loginModel) IsReady() bool {

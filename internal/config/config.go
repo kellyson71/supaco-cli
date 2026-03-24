@@ -10,6 +10,7 @@ type Config struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	Matricula    string `json:"matricula"`
+	Senha        string `json:"senha,omitempty"`
 }
 
 func configPath() string {

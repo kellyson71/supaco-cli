@@ -52,9 +52,11 @@ func runTUI() {
 
 func runQuick(cmd string) {
 	cfg, _ := config.Load()
-	if cfg.AccessToken == "" {
-		errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true)
-		fmt.Println(errorStyle.Render("✗ Não autenticado. Execute 'supaco' para fazer login."))
+	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true)
+	mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#94A3B8"))
+
+	if cfg.AccessToken == "" && cfg.Senha == "" {
+		fmt.Println(errorStyle.Render("x Nao autenticado. Execute 'supaco' para fazer login."))
 		os.Exit(1)
 	}
 
@@ -67,8 +69,31 @@ func runQuick(cmd string) {
 		cfg.Save()
 	}
 
+	// tryRelogin tenta fazer login com credenciais salvas
+	tryRelogin := func() bool {
+		if cfg.Matricula == "" || cfg.Senha == "" {
+			return false
+		}
+		fmt.Println(mutedStyle.Render("  Renovando sessao..."))
+		tokens, err := client.Login(cfg.Matricula, cfg.Senha)
+		if err != nil {
+			return false
+		}
+		cfg.AccessToken = tokens.Access
+		cfg.RefreshToken = tokens.Refresh
+		cfg.Save()
+		return true
+	}
+
 	// Fetch data needed for the command
-	periods, _ := client.GetPeriods()
+	periods, err := client.GetPeriods()
+	if err != nil {
+		if !tryRelogin() {
+			fmt.Println(errorStyle.Render("x Sessao expirada. Execute 'supaco' para fazer login."))
+			os.Exit(1)
+		}
+		periods, _ = client.GetPeriods()
+	}
 	semestre := api.LatestSemester(periods)
 	latest := api.LatestPeriod(periods)
 
