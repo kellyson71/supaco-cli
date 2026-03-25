@@ -17,8 +17,7 @@ sha256sums=('710ee53c350916e5cfb0439112e5afd44213d48228b8d2fb5c1e27641e081420')
 build() {
     cd "$pkgname-$pkgver"
     export CGO_ENABLED=0
-    export GOPATH="$srcdir/gopath"
-    go build -trimpath -ldflags="-s -w" -o supaco .
+    go build -trimpath -mod=vendor -ldflags="-s -w" -o supaco .
 }
 
 package() {
